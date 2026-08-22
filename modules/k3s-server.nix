@@ -1,16 +1,21 @@
 { pkgs, ... }:
 
 let
-  kubeconfigProvisioner = pkgs.writeShellApplication {
-    name = "provision-k3s-kubeconfigs";
-    runtimeInputs = with pkgs; [
-      coreutils
-      k3s
-      kubectl
-      openssl
+  kubeconfigProvisioner = pkgs.writers.writeNuBin "provision-k3s-kubeconfigs" {
+    makeWrapperArgs = [
+      "--prefix"
+      "PATH"
+      ":"
+      (pkgs.lib.makeBinPath (
+        with pkgs;
+        [
+          coreutils
+          kubectl
+          openssl
+        ]
+      ))
     ];
-    text = builtins.readFile ../scripts/provision-kubeconfigs.sh;
-  };
+  } (builtins.readFile ../scripts/provision-kubeconfigs.nu);
 in
 {
   services.k3s = {

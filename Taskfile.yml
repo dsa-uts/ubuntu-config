@@ -1,0 +1,24 @@
+version: "3"
+
+tasks:
+  vm:create:
+    desc: Create the dsa-dev OrbStack VM if it does not exist
+    cmds:
+      - nu ./scripts/vm.nu create
+
+  apply:
+    desc: Apply the System Manager configuration and verify k3s
+    cmds:
+      - nu ./scripts/vm.nu apply
+
+  up:
+    desc: Create the VM if needed, then apply and verify the configuration
+    cmds:
+      - task: vm:create
+      - task: apply
+
+  vm:recreate:
+    desc: Permanently delete and recreate the dsa-dev VM
+    prompt: This permanently deletes dsa-dev and all data stored in it. Continue?
+    cmds:
+      - nu ./scripts/vm.nu recreate

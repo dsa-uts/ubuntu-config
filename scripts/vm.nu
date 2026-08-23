@@ -99,7 +99,7 @@ def install-nix [] {
     if $version_result.exit_code != 0 {
       fail $"failed to query the installed Nix version: ($version_result.stderr | str trim)"
     }
-    let actual_version = $version_result.stdout | str trim | split words | last
+    let actual_version = $version_result.stdout | str trim | split row ' ' | last
     if $actual_version != $NIX_INSTALLER_VERSION {
       fail $"Nix ($actual_version) is installed, but ($NIX_INSTALLER_VERSION) is required"
     }

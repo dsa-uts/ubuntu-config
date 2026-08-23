@@ -82,8 +82,6 @@ in
     services = {
       k3s = {
         description = "Lightweight Kubernetes";
-        after = [ "network-online.target" ];
-        wants = [ "network-online.target" ];
         wantedBy = [ "multi-user.target" ];
         preStart = ''
           ${pkgs.procps}/bin/sysctl -w net.ipv4.ip_forward=1

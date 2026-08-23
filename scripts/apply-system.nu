@@ -9,9 +9,9 @@ def apply-configuration [] {
 }
 
 def verify-cluster [] {
-  let active = (^systemctl is-active --quiet k3s.service | complete)
-  if $active.exit_code != 0 {
-    fail "k3s.service is not active"
+  let start = (^systemctl start k3s.service | complete)
+  if $start.exit_code != 0 {
+    fail $"failed to start k3s.service: ($start.stderr | str trim)"
   }
 
   let k3s = "/run/system-manager/sw/bin/k3s"

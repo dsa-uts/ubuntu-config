@@ -44,23 +44,18 @@
         };
       });
 
-      packages = forAllHosts (system: {
-        nu = nixpkgs.legacyPackages.${system}.nushell;
-        default = nixpkgs.legacyPackages.${system}.nushell;
-      });
-
-      apps = forAllHosts (
+      devShells = forAllHosts (
         system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+        in
         {
-          nu = {
-            type = "app";
-            program = nixpkgs.lib.getExe nixpkgs.legacyPackages.${system}.nushell;
-          };
-        }
-        // nixpkgs.lib.optionalAttrs (builtins.elem system linuxSystems) {
-          system-manager = {
-            type = "app";
-            program = "${system-manager.packages.${system}.default}/bin/system-manager";
+          default = pkgs.mkShell {
+            packages = [
+              pkgs.go-task
+              pkgs.nushell
+            ]
+            ++ nixpkgs.lib.optional (builtins.elem system linuxSystems) system-manager.packages.${system}.default;
           };
         }
       );

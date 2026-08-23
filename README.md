@@ -9,8 +9,16 @@ dotfiles、シェル、`kubectl`、Helm などは別の Home Manager リポジ�
 ## 必要なもの
 
 - OrbStack 2.2.3 以降
-- Nix（ホスト側で Task が Nushell を実行するために使用）
-- [Task](https://taskfile.dev/)
+- Nix
+- [direnv](https://direnv.net/) と [nix-direnv](https://github.com/nix-community/nix-direnv)
+  （シェルへの hook 設定済み）
+
+初回だけ、このリポジトリの開発環境を許可します。Task と Nushell は devShell から
+提供されます。
+
+```console
+direnv allow
+```
 
 ## VM の作成と適用
 
@@ -23,6 +31,7 @@ task up
 1. 存在しない場合だけ `ubuntu:26.04` VM `dsa-dev` を作成
 2. ログインユーザー `dsa-admin` の存在を確認
 3. 公式 `NixOS/nix-installer` 2.35.1 を SHA-256 検証後に非対話で導入
+   （既存 Nix はバージョンを検証）
 4. ホストの現在の checkout を OrbStack の共有マウント越しに評価して System Manager を適用
 5. k3s、ノード、管理者権限、Secret encryption を検証
 
@@ -59,7 +68,6 @@ ARCH=amd64 task vm:recreate
 - `net.ipv4.ip_forward=1`
 - `dsa-admin` の passwordless sudo（適用前に `visudo` で検証）
 - `/home/dsa-admin/.kube/config`（所有者 `dsa-admin`、mode `0600`）
-- security update の unattended installation（自動再起動なし）
 
 k3s の状態と暗号鍵は `/var/lib/rancher/k3s` に保存され、通常の `task apply` では
 保持されます。k3s はデフォルト構成の Traefik、ServiceLB などを有効にし、Secret は

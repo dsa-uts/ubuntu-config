@@ -4,13 +4,18 @@ const VM_NAME = "dsa-dev"
 const VM_IMAGE = "ubuntu:26.04"
 const VM_USER = "dsa-admin"
 const NIX_INSTALLER_VERSION = "2.35.1"
-const NIX_INSTALLER_BASE_URL = "https://github.com/NixOS/nix-installer/releases/download/2.35.1"
-const NIX_INSTALLER_SHA256 = {
-  aarch64-linux: "7e6e2f753144d7f19b16a9fce4b354cb0f46d1d47e6908bfb9186c89e0e0e649"
-  x86_64-linux: "3b49a0b91820accb76e3d9ff7ed64fc430121b9fafb3869b0d549721fbeb4c85"
+const NIX_INSTALLER_BASE_URL = "https://github.com/NixOS/nix-installer/releases/download"
+const ARCHITECTURES = {
+  arm64: {
+    nix_system: "aarch64-linux"
+    installer_sha256: "7e6e2f753144d7f19b16a9fce4b354cb0f46d1d47e6908bfb9186c89e0e0e649"
+  }
+  amd64: {
+    nix_system: "x86_64-linux"
+    installer_sha256: "3b49a0b91820accb76e3d9ff7ed64fc430121b9fafb3869b0d549721fbeb4c85"
+  }
 }
 const NIX = "/nix/var/nix/profiles/default/bin/nix"
-const GUEST_PATH = "PATH=/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 def fail [message: string] {
   error make { msg: $message }
@@ -84,25 +89,31 @@ def require-target [] {
 
 def install-prerequisites [] {
   ^orb run --machine $VM_NAME --user root apt-get update
-  ^orb run --machine $VM_NAME --user root /usr/bin/env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends ca-certificates curl sudo unattended-upgrades
+  ^orb run --machine $VM_NAME --user root /usr/bin/env DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends ca-certificates curl sudo
 }
 
 def install-nix [] {
   let installed = (^orb run --machine $VM_NAME --user root test -x $NIX | complete)
   if $installed.exit_code == 0 {
-    ^orb run --machine $VM_NAME --user root $NIX --version
+    let version_result = (^orb run --machine $VM_NAME --user root $NIX --version | complete)
+    if $version_result.exit_code != 0 {
+      fail $"failed to query the installed Nix version: ($version_result.stderr | str trim)"
+    }
+    let actual_version = $version_result.stdout | str trim | split words | last
+    if $actual_version != $NIX_INSTALLER_VERSION {
+      fail $"Nix ($actual_version) is installed, but ($NIX_INSTALLER_VERSION) is required"
+    }
+    print --no-newline $version_result.stdout
     return
   }
 
   let machine = ^orb run --machine $VM_NAME --user root uname -m | str trim
-  let system = match $machine {
-    "aarch64" | "arm64" => "aarch64-linux"
-    "x86_64" | "amd64" => "x86_64-linux"
-    _ => { fail $"unsupported VM architecture: ($machine)" }
-  }
-  let expected = $NIX_INSTALLER_SHA256 | get $system
+  let arch = normalize-arch $machine
+  let architecture = $ARCHITECTURES | get $arch
+  let system = $architecture.nix_system
+  let expected = $architecture.installer_sha256
   let installer = "/tmp/nix-installer"
-  let url = $"($NIX_INSTALLER_BASE_URL)/nix-installer-($system)"
+  let url = $"($NIX_INSTALLER_BASE_URL)/($NIX_INSTALLER_VERSION)/nix-installer-($system)"
 
   try {
     ^orb run --machine $VM_NAME --user root curl --fail --location --proto '=https' --tlsv1.2 $url --output $installer
@@ -133,7 +144,7 @@ def apply-system [] {
   install-nix
 
   let repo = pwd | path expand
-  ^orb run --machine $VM_NAME --user root --path --workdir $repo env $GUEST_PATH nix --accept-flake-config run path:.#nu -- ./scripts/apply-system.nu
+  ^orb run --machine $VM_NAME --user root --path --workdir $repo $NIX --accept-flake-config develop path:. --command nu ./scripts/apply-system.nu
 }
 
 def recreate-vm [] {

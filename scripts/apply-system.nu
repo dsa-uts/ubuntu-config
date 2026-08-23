@@ -1,15 +1,11 @@
 #!/usr/bin/env nu
 
-const NIX = "/nix/var/nix/profiles/default/bin/nix"
-
 def fail [message: string] {
   error make { msg: $message }
 }
 
 def apply-configuration [] {
-  let flake = $"path:((pwd | path expand))"
-  cd /tmp
-  ^$NIX --accept-flake-config run $"($flake)#system-manager" -- --nix-option accept-flake-config true switch --flake $"($flake)#default"
+  ^system-manager --nix-option accept-flake-config true switch --flake path:.#default
 }
 
 def verify-cluster [] {

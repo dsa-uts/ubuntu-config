@@ -4,12 +4,12 @@ tasks:
   vm:create:
     desc: Create the dsa-dev OrbStack VM if it does not exist
     cmds:
-      - nix --accept-flake-config run path:.#nu -- ./scripts/vm.nu create
+      - nu ./scripts/vm.nu create
 
   apply:
     desc: Apply the System Manager configuration and verify k3s
     cmds:
-      - nix --accept-flake-config run path:.#nu -- ./scripts/vm.nu apply
+      - nu ./scripts/vm.nu apply
 
   up:
     desc: Create the VM if needed, then apply and verify the configuration
@@ -21,4 +21,4 @@ tasks:
     desc: Permanently delete and recreate the dsa-dev VM
     prompt: This permanently deletes dsa-dev and all data stored in it. Continue?
     cmds:
-      - nix --accept-flake-config run path:.#nu -- ./scripts/vm.nu recreate
+      - nu ./scripts/vm.nu recreate

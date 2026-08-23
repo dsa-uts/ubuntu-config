@@ -47,19 +47,6 @@ in
       "sysctl.d/90-k3s.conf".text = ''
         net.ipv4.ip_forward = 1
       '';
-
-      "apt/apt.conf.d/99-system-manager-security-updates".text = ''
-        APT::Periodic::Enable "1";
-        APT::Periodic::Update-Package-Lists "1";
-        APT::Periodic::Unattended-Upgrade "1";
-
-        #clear Unattended-Upgrade::Allowed-Origins;
-        Unattended-Upgrade::Allowed-Origins {
-          "''${distro_id}:''${distro_codename}-security";
-        };
-
-        Unattended-Upgrade::Automatic-Reboot "false";
-      '';
     };
   };
 

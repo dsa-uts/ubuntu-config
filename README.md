@@ -1,35 +1,84 @@
 # nixos-config
 
-NixOS 26.05 上に単一サーバーの k3s クラスタを構築する flake です。OrbStack の
-`nixos-dsa` (`aarch64-linux`) 向け設定を含みます。
+OrbStack 上の Ubuntu 26.04 LTS VM `dsa-dev` に、System Manager で単一ノードの
+k3s クラスタを構築する設定です。リポジトリ名は旧構成に由来しますが、NixOS は使用しません。
 
-## 適用
+System Manager が扱うのはディストリビューションレベルの設定だけです。ユーザーの
+dotfiles、シェル、`kubectl`、Helm などは別の Home Manager リポジトリで管理します。
 
-```console
-sudo nixos-rebuild switch --flake .#nixos-dsa
-```
+## 必要なもの
 
-Home Manager で `kubectl` と Helm が次のユーザーへ導入されます。
+- OrbStack 2.2.3 以降
+- Nix（ホスト側で Task が Nushell を実行するために使用）
+- [Task](https://taskfile.dev/)
 
-- `k3s-admin`: k3s の `system:admin` kubeconfig を持つクラスタ管理者
-- `mizokami`: 全 Namespace の一般的なアプリリソースと Namespace 作成のみ許可
-
-各ユーザーの kubeconfig は `/home/<user>/.kube/config` に生成されます。
-
-## RBAC の確認
+## VM の作成と適用
 
 ```console
-sudo -u k3s-admin kubectl auth can-i '*' '*'
-sudo -u mizokami kubectl auth can-i create deployments.apps --all-namespaces
-sudo -u mizokami kubectl auth can-i create namespaces
-sudo -u mizokami kubectl auth can-i get secrets --all-namespaces
-sudo -u mizokami kubectl auth can-i create clusterroles.rbac.authorization.k8s.io
-sudo -u mizokami kubectl auth can-i get nodes
+task up
 ```
 
-想定結果は順に `yes`, `yes`, `yes`, `no`, `no`, `no` です。
+`task up` は次の処理を非破壊かつ冪等に実行します。
 
-`mizokami` は Pod や Deployment を作成できます。Kubernetes の性質上、作成した
-workload から、その Namespace 内で workload にマウント可能な Secret の内容へ
-間接的に到達できる場合があります。この RBAC は Secret API の直接操作を禁止しますが、
-信頼境界の異なる利用者を同じ Namespace に隔離するものではありません。
+1. 存在しない場合だけ `ubuntu:26.04` VM `dsa-dev` を作成
+2. ログインユーザー `dsa-admin` の存在を確認
+3. 公式 `NixOS/nix-installer` 2.35.1 を SHA-256 検証後に非対話で導入
+4. ホストの現在の checkout を OrbStack の共有マウント越しに評価して System Manager を適用
+5. k3s、ノード、管理者権限、Secret encryption を検証
+
+個別のターゲットも利用できます。
+
+```console
+task vm:create
+task apply
+```
+
+## アーキテクチャ
+
+デフォルトでは macOS ホストと同じアーキテクチャを選びます。明示する場合は
+`ARCH=arm64` または `ARCH=amd64` を指定します。
+
+```console
+ARCH=amd64 task up
+```
+
+既存 VM と要求したアーキテクチャが異なる場合、`task up` は VM を削除せず失敗します。
+切り替えるには、次の破壊的ターゲットを明示的に実行してください。
+
+```console
+ARCH=amd64 task vm:recreate
+```
+
+> **警告:** `task vm:recreate` は `dsa-dev` を完全に削除します。VM 内のファイル、
+> 開発データ、k3s の全状態、Secret encryption の鍵は復元できません。
+
+## 管理される設定
+
+- Nixpkgs `nixos-26.05` と System Manager `release-26.05`
+- Nixpkgs で固定された k3s と systemd サービス
+- `net.ipv4.ip_forward=1`
+- `dsa-admin` の passwordless sudo（適用前に `visudo` で検証）
+- `/home/dsa-admin/.kube/config`（所有者 `dsa-admin`、mode `0600`）
+- security update の unattended installation（自動再起動なし）
+
+k3s の状態と暗号鍵は `/var/lib/rancher/k3s` に保存され、通常の `task apply` では
+保持されます。k3s はデフォルト構成の Traefik、ServiceLB などを有効にし、Secret は
+`secretbox` provider で暗号化します。
+
+## 適用後の検証
+
+`task apply` は最大 5 分待ち、次をすべて満たさなければ失敗します。
+
+- `k3s.service` が active
+- 単一ノードが `Ready`
+- `dsa-admin` の kubeconfig で `auth can-i '*' '*'` が `yes`
+- `k3s secrets-encrypt status` が encryption enabled
+
+VM への接続後、同じ状態を手動で確認できます。
+
+```console
+orb shell dsa-dev
+sudo k3s kubectl get nodes
+k3s kubectl --kubeconfig ~/.kube/config auth can-i '*' '*'
+sudo k3s secrets-encrypt status
+```

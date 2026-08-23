@@ -67,7 +67,7 @@ ARCH=amd64 task vm:recreate
 - Nixpkgs で固定された k3s と systemd サービス
 - `net.ipv4.ip_forward=1`
 - `dsa-admin` の passwordless sudo（適用前に `visudo` で検証）
-- `/home/dsa-admin/.kube/config`（所有者 `dsa-admin`、mode `0600`）
+- `/etc/rancher/k3s/k3s.yaml`（所有者 `root:dsa-admin`、mode `0640`）
 
 k3s の状態は `/var/lib/rancher/k3s` に保存され、通常の `task apply` では保持されます。
 k3s はデフォルト構成の Traefik、ServiceLB などを有効にします。このローカル開発用
@@ -85,5 +85,6 @@ VM への接続後、同じ状態を手動で確認できます。
 ```console
 orb shell dsa-dev
 sudo k3s kubectl get nodes
-k3s kubectl --kubeconfig ~/.kube/config auth can-i '*' '*'
+kubectl get pods
+k3s kubectl auth can-i '*' '*'
 ```

@@ -8,25 +8,6 @@ let
   sudoersDsaAdmin = pkgs.writeText "sudoers-dsa-admin" ''
     dsa-admin ALL=(ALL:ALL) NOPASSWD: ALL
   '';
-
-  provisionKubeconfig = pkgs.writeShellApplication {
-    name = "provision-k3s-kubeconfig";
-    runtimeInputs = with pkgs; [
-      coreutils
-    ];
-    text = ''
-      source_config=/etc/rancher/k3s/k3s.yaml
-      target_dir=/home/dsa-admin/.kube
-      target_config="$target_dir/config"
-
-      install -d -o dsa-admin -g dsa-admin -m 0700 "$target_dir"
-      temporary=$(mktemp "$target_dir/.config.XXXXXX")
-      trap 'rm -f -- "$temporary"' EXIT
-      install -o dsa-admin -g dsa-admin -m 0600 "$source_config" "$temporary"
-      mv -f -- "$temporary" "$target_config"
-      trap - EXIT
-    '';
-  };
 in
 {
   nix.enable = false;
@@ -72,11 +53,6 @@ in
         user = "root";
         group = "root";
       };
-      "/home/dsa-admin/.kube".d = {
-        mode = "0700";
-        user = "dsa-admin";
-        group = "dsa-admin";
-      };
     };
 
     services = {
@@ -99,28 +75,11 @@ in
           ExecStart = lib.concatStringsSep " " [
             "${pkgs.k3s}/bin/k3s"
             "server"
-            "--write-kubeconfig-mode=0600"
+            "--write-kubeconfig-group=dsa-admin"
+            "--write-kubeconfig-mode=0640"
           ];
         };
       };
-
-      k3s-kubeconfig = {
-        description = "Provision the dsa-admin k3s kubeconfig";
-        after = [ "k3s.service" ];
-        requires = [ "k3s.service" ];
-        wantedBy = [ "multi-user.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          ExecCondition = "${pkgs.coreutils}/bin/test -s /etc/rancher/k3s/k3s.yaml";
-          ExecStart = lib.getExe provisionKubeconfig;
-        };
-      };
-    };
-
-    paths.k3s-kubeconfig = {
-      description = "Refresh the dsa-admin kubeconfig when k3s rotates it";
-      wantedBy = [ "multi-user.target" ];
-      pathConfig.PathChanged = "/etc/rancher/k3s/k3s.yaml";
     };
   };
 }

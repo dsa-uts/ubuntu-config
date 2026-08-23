@@ -96,11 +96,6 @@ systemd.tmpfiles.settings."10-k3s" = {
     user = "root";
     group = "root";
   };
-  "/home/dsa-admin/.kube".d = {
-    mode = "0700";
-    user = "dsa-admin";
-    group = "dsa-admin";
-  };
 };
 ```
 
@@ -124,14 +119,17 @@ systemd.services.k3s = {
     TasksMax = "infinity";
     Restart = "always";
     RestartSec = "5s";
-    ExecStart = ''
-      ${pkgs.k3s}/bin/k3s server
-    '';
+    ExecStart = lib.concatStringsSep " " [
+      "${pkgs.k3s}/bin/k3s"
+      "server"
+      "--write-kubeconfig-group=dsa-admin"
+      "--write-kubeconfig-mode=0640"
+    ];
   };
 };
 ```
 
-Use a separate oneshot service ordered `after`/`requires` k3s to wait until `/etc/rancher/k3s/k3s.yaml` exists and atomically install it as `/home/dsa-admin/.kube/config` with owner/group `dsa-admin` and mode `0600`. K3s documents that its admin kubeconfig is root-owned and `0600` by default; copying rather than relaxing its mode keeps the source protected. Source: [K3s admin kubeconfig flags](https://docs.k3s.io/cli/server#admin-kubeconfig-options).
+Keep the admin kubeconfig at its canonical path and set its group to `dsa-admin` with mode `0640`. This preserves root ownership, limits access to the administrator group, lets the bundled `kubectl` use its default path, and avoids synchronizing a copy after certificate renewal. Source: [K3s admin kubeconfig flags](https://docs.k3s.io/cli/server#admin-kubeconfig-options).
 
 ## Pinned official NixOS `nix-installer`
 
@@ -173,8 +171,7 @@ The required verification maps directly to first-party commands:
 ```sh
 systemctl is-active --quiet k3s.service
 k3s kubectl wait --for=condition=Ready node --all --timeout=180s
-sudo -u dsa-admin env KUBECONFIG=/home/dsa-admin/.kube/config \
-  k3s kubectl auth can-i '*' '*'
+sudo -u dsa-admin k3s kubectl auth can-i '*' '*'
 ```
 
 Require the authorization command's output to equal `yes`.
@@ -182,6 +179,6 @@ Require the authorization command's output to equal `yes`.
 ## Implementation cautions
 
 - Do not import the NixOS `services.k3s` module wholesale. System Manager only guarantees the subset it implements; NixOS modules tied to `boot.*`, activation scripts, or deeper NixOS infrastructure need stubs or are unsuitable. The explicit package + unit approach stays within supported `environment`, `systemd`, `/etc`, and tmpfiles interfaces. Source: [official NixOS-module import caveats](https://github.com/numtide/system-manager/blob/05e08c6dd739d7f3204e71322594bb8095334cfb/docs/site/how-to/import-nixos-module.md#limitations-and-considerations).
-- `/var/lib/rancher/k3s` and the copied user kubeconfig must not be expressed as generation-owned `/etc` files. Tmpfiles plus a oneshot provisioning unit preserve mutable cluster state and refresh credentials after k3s restart/certificate rotation.
+- `/var/lib/rancher/k3s` must not be expressed as generation-owned state. Its tmpfiles rule preserves mutable cluster state, while k3s owns and refreshes the admin kubeconfig at `/etc/rancher/k3s/k3s.yaml`.
 - Activation restarts a changed k3s unit. Because the data directory is outside the generation, ordinary applies preserve cluster data.
 - `replaceExisting` should be exceptional. It is appropriate only when takeover is intentional and reviewed; it is specifically inappropriate for `/etc/nix/nix.conf` in this design.

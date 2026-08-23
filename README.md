@@ -1,4 +1,4 @@
-# nixos-config
+# ubuntu-config
 
 OrbStack 上の Ubuntu 26.04 LTS VM `dsa-dev` に、System Manager で単一ノードの
 k3s クラスタを構築する設定です。リポジトリ名は旧構成に由来しますが、NixOS は使用しません。

@@ -64,6 +64,7 @@ ARCH=amd64 task vm:recreate
 ## 管理される設定
 
 - Nixpkgs `nixos-26.05` と System Manager `release-26.05`
+- Numtide binary cache（`llm-agents.nix` のパッケージ用）
 - Nixpkgs で固定された k3s と systemd サービス
 - `net.ipv4.ip_forward=1`
 - `dsa-admin` の passwordless sudo（適用前に `visudo` で検証）

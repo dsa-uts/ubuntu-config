@@ -144,7 +144,7 @@ def apply-system [] {
   install-nix
 
   let repo = pwd | path expand
-  ^orb run --machine $VM_NAME --user root --path --workdir $repo $NIX --accept-flake-config develop path:. --command nu ./scripts/apply-system.nu
+  ^orb run --machine $VM_NAME --user root --path --workdir $repo $NIX develop path:. --command nu ./scripts/apply-system.nu
 }
 
 def recreate-vm [] {

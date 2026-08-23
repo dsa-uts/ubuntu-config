@@ -5,7 +5,7 @@ def fail [message: string] {
 }
 
 def apply-configuration [] {
-  ^system-manager --nix-option accept-flake-config true switch --flake path:.#default
+  ^system-manager switch --flake path:.#default
 }
 
 def verify-cluster [] {

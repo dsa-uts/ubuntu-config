@@ -99,8 +99,6 @@ in
           ExecStart = lib.concatStringsSep " " [
             "${pkgs.k3s}/bin/k3s"
             "server"
-            "--secrets-encryption"
-            "--secrets-encryption-provider=secretbox"
             "--write-kubeconfig-mode=0600"
           ];
         };

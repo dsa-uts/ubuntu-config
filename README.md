@@ -33,7 +33,7 @@ task up
 3. 公式 `NixOS/nix-installer` 2.35.1 を SHA-256 検証後に非対話で導入
    （既存 Nix はバージョンを検証）
 4. ホストの現在の checkout を OrbStack の共有マウント越しに評価して System Manager を適用
-5. k3s、ノード、管理者権限、Secret encryption を検証
+5. k3s、ノード、管理者権限を検証
 
 個別のターゲットも利用できます。
 
@@ -59,7 +59,7 @@ ARCH=amd64 task vm:recreate
 ```
 
 > **警告:** `task vm:recreate` は `dsa-dev` を完全に削除します。VM 内のファイル、
-> 開発データ、k3s の全状態、Secret encryption の鍵は復元できません。
+> 開発データと k3s の全状態は復元できません。
 
 ## 管理される設定
 
@@ -69,9 +69,8 @@ ARCH=amd64 task vm:recreate
 - `dsa-admin` の passwordless sudo（適用前に `visudo` で検証）
 - `/home/dsa-admin/.kube/config`（所有者 `dsa-admin`、mode `0600`）
 
-k3s の状態と暗号鍵は `/var/lib/rancher/k3s` に保存され、通常の `task apply` では
-保持されます。k3s はデフォルト構成の Traefik、ServiceLB などを有効にし、Secret は
-`secretbox` provider で暗号化します。
+k3s の状態は `/var/lib/rancher/k3s` に保存され、通常の `task apply` では保持されます。
+k3s はデフォルト構成の Traefik、ServiceLB などを有効にします。このローカル開発用
 
 ## 適用後の検証
 
@@ -80,7 +79,6 @@ k3s の状態と暗号鍵は `/var/lib/rancher/k3s` に保存され、通常の 
 - `k3s.service` が active
 - 単一ノードが `Ready`
 - `dsa-admin` の kubeconfig で `auth can-i '*' '*'` が `yes`
-- `k3s secrets-encrypt status` が encryption enabled
 
 VM への接続後、同じ状態を手動で確認できます。
 
@@ -88,5 +86,4 @@ VM への接続後、同じ状態を手動で確認できます。
 orb shell dsa-dev
 sudo k3s kubectl get nodes
 k3s kubectl --kubeconfig ~/.kube/config auth can-i '*' '*'
-sudo k3s secrets-encrypt status
 ```

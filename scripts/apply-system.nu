@@ -27,12 +27,6 @@ def verify-cluster [] {
   if $authorization != "yes" {
     fail "dsa-admin does not have full cluster authorization"
   }
-
-  let encryption = ^$k3s secrets-encrypt status | complete
-  print --no-newline $encryption.stdout
-  if $encryption.exit_code != 0 or not ($encryption.stdout | str contains --ignore-case "Encryption Status: Enabled") {
-    fail "k3s Secret encryption is not enabled"
-  }
 }
 
 def main [] {

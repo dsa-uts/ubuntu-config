@@ -125,9 +125,7 @@ systemd.services.k3s = {
     Restart = "always";
     RestartSec = "5s";
     ExecStart = ''
-      ${pkgs.k3s}/bin/k3s server \
-        --secrets-encryption \
-        --secrets-encryption-provider=secretbox
+      ${pkgs.k3s}/bin/k3s server
     '';
   };
 };
@@ -168,7 +166,7 @@ Host/runtime requirements still belong to Ubuntu/the kernel:
 
 Source: [official K3s requirements](https://docs.k3s.io/installation/requirements). The upstream requirements page does not prescribe extra Ubuntu 24.04+ kernel packages for these architectures.
 
-K3s's default state path is `/var/lib/rancher/k3s`. Starting the server initially with both `--secrets-encryption` and `--secrets-encryption-provider=secretbox` generates its encryption configuration and key under that state tree; `secretbox` is supported by the pinned K3s version. Sources: [server data and encryption flags](https://docs.k3s.io/cli/server#data), [provider support and generated config path](https://docs.k3s.io/security/secrets-encryption#choosing-encryption-provider).
+K3s's default state path is `/var/lib/rancher/k3s`. The state tree is retained across ordinary applies. This local development cluster deliberately leaves secrets encryption at rest disabled; production-like environments should evaluate it separately. Source: [server data path](https://docs.k3s.io/cli/server#data).
 
 The required verification maps directly to first-party commands:
 
@@ -177,14 +175,13 @@ systemctl is-active --quiet k3s.service
 k3s kubectl wait --for=condition=Ready node --all --timeout=180s
 sudo -u dsa-admin env KUBECONFIG=/home/dsa-admin/.kube/config \
   k3s kubectl auth can-i '*' '*'
-k3s secrets-encrypt status
 ```
 
-Require the authorization command's output to equal `yes`, and require `k3s secrets-encrypt status` to contain `Encryption Status: Enabled`. The latter is the official status indicator. Source: [K3s secrets-encrypt status documentation](https://docs.k3s.io/cli/secrets-encrypt#secrets-encryption-status).
+Require the authorization command's output to equal `yes`.
 
 ## Implementation cautions
 
 - Do not import the NixOS `services.k3s` module wholesale. System Manager only guarantees the subset it implements; NixOS modules tied to `boot.*`, activation scripts, or deeper NixOS infrastructure need stubs or are unsuitable. The explicit package + unit approach stays within supported `environment`, `systemd`, `/etc`, and tmpfiles interfaces. Source: [official NixOS-module import caveats](https://github.com/numtide/system-manager/blob/05e08c6dd739d7f3204e71322594bb8095334cfb/docs/site/how-to/import-nixos-module.md#limitations-and-considerations).
 - `/var/lib/rancher/k3s` and the copied user kubeconfig must not be expressed as generation-owned `/etc` files. Tmpfiles plus a oneshot provisioning unit preserve mutable cluster state and refresh credentials after k3s restart/certificate rotation.
-- Activation restarts a changed k3s unit. Because the data directory is outside the generation, ordinary applies preserve cluster data and secret-encryption keys.
+- Activation restarts a changed k3s unit. Because the data directory is outside the generation, ordinary applies preserve cluster data.
 - `replaceExisting` should be exceptional. It is appropriate only when takeover is intentional and reviewed; it is specifically inappropriate for `/etc/nix/nix.conf` in this design.

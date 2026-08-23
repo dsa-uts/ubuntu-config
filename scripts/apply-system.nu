@@ -16,7 +16,9 @@ def verify-cluster [] {
 
   let k3s = "/run/system-manager/sw/bin/k3s"
   let kubeconfig = "/home/dsa-admin/.kube/config"
-  ^$k3s kubectl wait --for=condition=Ready nodes --all --timeout=300s
+  let node = ^hostname | str trim
+  ^$k3s kubectl wait --for=create $"node/($node)" --timeout=300s
+  ^$k3s kubectl wait --for=condition=Ready $"node/($node)" --timeout=300s
 
   let authorization = (
     ^runuser -u dsa-admin -- $k3s kubectl --kubeconfig $kubeconfig auth can-i '*' '*'
